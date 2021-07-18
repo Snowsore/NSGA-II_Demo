@@ -95,6 +95,10 @@
         return {
             step() {
 
+                // ******************************
+                // Loop start
+                // ******************************
+
                 let qPops = [...Array(pops.length)].map(x => {
                     let {p1, p2} = tournament_selection(pops)
                     x = crossover(p1, p2)
@@ -113,7 +117,12 @@
 
                 return {
                     solution: pops.map(x => x.res),
-                    Step: count++
+                    Step: count++,
+                    Population: pops.length,
+                    Distance: pops.reduce((acc, x) => {
+                        if(x.distance < 1000) return acc + x.distance
+                        else return acc
+                    }, 0),
                 }
             }
         }
