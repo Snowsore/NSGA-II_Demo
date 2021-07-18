@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <link rel="stylesheet" href="./css/index.css">
+</head>
+
+<body>
+    <div id='pop' class='modal hidden' onshow='show'>
+        <div class='grid'>
+            <div class='head'>
+                <h1>
+                    Genetic Algorithm DEMO
+                </h1>
+            </div>
+        
+            <div class='body'>
+                <div>
+                    <select id='selection' onchange='reset()'>
+                        <option>ZDT-1</option>
+                        <option>ZDT-2</option>
+                        <option>ZDT-3</option>
+                        <option>ZDT-4</option>
+                        <option>ZDT-6</option>
+                    </select>
+                </div>
+                <div class='static' id='static'></div>
+                <canvas id='graph' class='graph' width='800' height='800'></canvas>
+            </div>
+        
+            <div class='foot'>
+                <h2>
+                    Made By 郑润宇
+                </h2>
+            </div>
+        </div>
+    </div>
+</body>
+
+<script src='./js/polyfill.js'></script>
+<script src='./js/graph.js'></script>
+
+<script>
+
+    // Show pop
+
+    setTimeout(() => {
+        var target = document.querySelector('#pop')
+        target.classList.remove('hidden')
+    }, 0)
+
+    // Setup graph
+
+    graph.set(document.querySelector('#graph'))
+    graph.start()
+
+    // Test suits
+
+    function ZDT1(x) {
+
+        let n = x.length
+
+        function f1(x) {
+            return x[0]
+        }
+
+        function g(x) {
+            return 1 + (9 / n - 1) * x.slice(1, n).reduce((acc, x) => acc += x)
+        }
+
+        function h(f, g) {
+            return 1 - Math.sqrt(f / g)
+        }
+
+        return {
+            f1: f1(x),
+            f2: g(x) * h(f1(x), g(x))
+        }
+    }
+
+    // Logic start
+
+    function NSGA_II(init, non_dominated_sorting, crowding_distance_sorting, tournament_selection, crossover, mutation) {
+        let count = 1
+
+        let pops = init()
+
+        pops = pops.map(x => {
+            let {f1, f2} = ZDT1(x.gene)
+            x.res = [f1, f2]
+            return x
+        })
+
+        return {
+            step() {
+
+                let qPops = [...Array(pops.length)].map(x => {
+                    let {p1, p2} = tournament_selection(pops)
+                    x = crossover(p1, p2)
+                    x = mutation(x)
+                    let {f1, f2} = ZDT1(x.gene)
+                    x.res = [f1, f2]
+                    return x
+                })
+
+                pops = [...pops, ...qPops]
+                
+                pops = non_dominated_sorting(pops)
+                pops = crowding_distance_sorting(pops)
+                pops = pops.reduce((acc, x) => acc.concat(x))
+
+                pops = pops.slice(0, pops.length / 2)
+
+                return {
+                    solution: pops.map(x => x.res),
+                    Step: count++
+                }
+            }
+        }
+    }
+    
+    var nsga_ii = NSGA_II(() => {
+
+        // Init
+
+        return [...Array(1000)].map(x => {
+            return {
+                rank: 0,
+                distance: 0,
+                gene: [
+                    Math.random(),
+                    Math.random()
+                ],
+                res: []
+            }
+        })
+
+    }, (population) => {
+
+        // non_dominated_sorting
+        
+        function splitFront(pop) {
+
+            let front = []
+            let back = []
+
+            for(let x of pop) {
+                let t = false
+                for(let y of pop) {
+                    if(x.gene[0] > y.gene[0] && x.gene[1] > y.gene[1]) {
+                        t = true
+                        break
+                    }
+                }
+                if(t) back.push(x)
+                else front.push(x)
+            }
+
+            return {
+                front,
+                back
+            }
+
+        }
+
+        let nodo = []
+        let fLine = 1
+
+        while(true) {
+
+            if(population.length == 0) break
+        
+            let {front, back} = splitFront(population)
+            front.map(x => x.rank = fLine)
+            nodo.push(front)
+            population = back
+            fLine += 1
+        }
+
+        return nodo
+
+    }, (fronts) => {
+
+        // crowding_distance_sorting
+
+        fronts = fronts.map(f => {
+            
+            for(let j = 0; j < f.length; j++) {
+                if(j == 0 || j == f.length - 1) {
+                    f[j].distance = 100
+                    continue
+                }
+
+                for(let m = 0; m < f[j].res.length; m++) {
+
+                    let max = Math.max(...f.map(x => x.res[m]))
+                    let min = Math.min(...f.map(x => x.res[m]))
+
+                    function calDistance(x1, x2) {
+                        return (x1.res[m] - x2.res[m]) / (max - min)
+                    }
+
+                    f[j].distance += calDistance(f[j + 1], f[j - 1])
+
+                }
+            }
+            return f
+
+        })
+
+        fronts = fronts.map(f => {
+            return f.sort((x, y) => {
+                return x.distace - y.distance
+            })
+        })
+
+        return fronts
+
+    }, (population) => {
+
+        // tournament_selection
+
+        function choice(population) {
+            let p1 = population[Math.floor(Math.random() * population.length)]
+            let p2 = population[Math.floor(Math.random() * population.length)]
+            if(p1.rank > p2.rank) return p1
+            if(p2.rank > p1.rank) return p2
+            if(p1.distance < p2.distance) return p1
+            else return p2
+        }
+
+        return {
+        p1: choice(population),
+        p2: choice(population)
+        }
+
+    }, (p1, p2) => {
+
+        // crossover
+
+        var f = p1.gene
+        var m = p2.gene
+
+        var n = 80
+
+        var u1 = Math.random()
+        var b1
+
+        if(u1 <= 0.5) {
+            b1 = Math.pow(2 * u1, 1 / (n + 1))
+        } else {
+            b1 = Math.pow(1 / (2 - 2 * u1), 1 / (n + 1))
+        }
+
+        var u2 = Math.random()
+        var b2
+
+        if(u2 <= 0.5) {
+            b2 = Math.pow(2 * u2, 1 / (n + 1))
+        } else {
+            b2 = Math.pow(1 / (2 - 2 * u2), 1 / (n + 1))
+        }
+
+        return {
+            rank: 0,
+            distance: 0,
+            gene: [
+                (f[0] + m[0]) / 2 - b1 * (m[0] - f[0]) / 2,
+                (f[1] + m[1]) / 2 - b2 * (m[1] - f[1]) / 2
+            ],
+            res: []
+        }
+
+    }, (child) => {
+
+        // mutation
+
+        if(Math.random() < 0.01) {
+            child.gene[0] = (Math.random() - 0.5) * 2
+            child.gene[1] = (Math.random() - 0.5) * 2
+        }
+
+        return child
+
+    })
+    
+    // Frame update
+    let static = document.querySelector('#static')
+
+    animate()
+    function animate() {
+        var res = nsga_ii.step()
+
+        console.log(res.solution)
+
+        res.solution.map(x => {
+            x[0] = (x[0] + 5) / 10
+            x[1] = (x[1] + 5) / 10
+            return x
+        })
+
+        graph.setData(res.solution)
+
+        static.innerHTML = ''
+        res.forEach((key, value) => {
+            if(key == 'solution') return 
+            static.innerHTML += `<div>${key} : ${value}</div>`
+        })
+        
+        window.requestAnimationFrame(animate)
+    }
+
+</script>
+
+</html>

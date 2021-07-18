@@ -3,4 +3,4 @@
 
 直接双击 index.js 你还想怎么样？
 
-[或者直接点击链接](https://github.io/Snowsore/NSGA-II_Demo)
+[或者直接点击链接](https://snowsore.github.io/NSGA-II_Demo/)
