@@ -19,10 +19,10 @@
                 <div>
                     <select id='selection' onchange='reset()'>
                         <option>ZDT-1</option>
-                        <option>ZDT-2</option>
+                        <!-- <option>ZDT-2</option>
                         <option>ZDT-3</option>
                         <option>ZDT-4</option>
-                        <option>ZDT-6</option>
+                        <option>ZDT-6</option> -->
                     </select>
                 </div>
                 <div class='static' id='static'></div>
@@ -109,7 +109,6 @@
                 pops = non_dominated_sorting(pops)
                 pops = crowding_distance_sorting(pops)
                 pops = pops.reduce((acc, x) => acc.concat(x))
-
                 pops = pops.slice(0, pops.length / 2)
 
                 return {
@@ -124,7 +123,7 @@
 
         // Init
 
-        return [...Array(1000)].map(x => {
+        return [...Array(100)].map(x => {
             return {
                 rank: 0,
                 distance: 0,
@@ -185,14 +184,20 @@
         // crowding_distance_sorting
 
         fronts = fronts.map(f => {
-            
-            for(let j = 0; j < f.length; j++) {
-                if(j == 0 || j == f.length - 1) {
-                    f[j].distance = 100
-                    continue
-                }
 
-                for(let m = 0; m < f[j].res.length; m++) {
+            f.map(x => x.distance = 0)
+            
+            for(let m = 0; m < f[0].res.length; m++) {
+
+                f = f.sort((x, y) => {
+                    return x.res[m] - y.res[m]
+                })
+
+                for(let j = 0; j < f.length; j++) {
+                    if(j == 0 || j == f.length - 1) {
+                        f[j].distance = 10000
+                        continue
+                    }
 
                     let max = Math.max(...f.map(x => x.res[m]))
                     let min = Math.min(...f.map(x => x.res[m]))
@@ -202,7 +207,6 @@
                     }
 
                     f[j].distance += calDistance(f[j + 1], f[j - 1])
-
                 }
             }
             return f
@@ -211,7 +215,7 @@
 
         fronts = fronts.map(f => {
             return f.sort((x, y) => {
-                return x.distace - y.distance
+                return y.distance - x.distance
             })
         })
 
@@ -226,13 +230,13 @@
             let p2 = population[Math.floor(Math.random() * population.length)]
             if(p1.rank > p2.rank) return p1
             if(p2.rank > p1.rank) return p2
-            if(p1.distance < p2.distance) return p1
+            if(p1.distance > p2.distance) return p1
             else return p2
         }
 
         return {
-        p1: choice(population),
-        p2: choice(population)
+            p1: choice(population),
+            p2: choice(population)
         }
 
     }, (p1, p2) => {
@@ -242,7 +246,7 @@
         var f = p1.gene
         var m = p2.gene
 
-        var n = 80
+        var n = 0.1
 
         var u1 = Math.random()
         var b1
@@ -262,13 +266,20 @@
             b2 = Math.pow(1 / (2 - 2 * u2), 1 / (n + 1))
         }
 
+        let g1 = (f[0] + m[0]) / 2 - b1 * (m[0] - f[0]) / 2
+        let g2 = (f[1] + m[1]) / 2 - b2 * (m[1] - f[1]) / 2
+
+        function clamp(number, min, max) {
+            return Math.max(min, Math.min(number, max));
+        }
+
+        g1 = clamp(g1, 0, 1)
+        g2 = clamp(g2, 0, 1)
+
         return {
             rank: 0,
             distance: 0,
-            gene: [
-                (f[0] + m[0]) / 2 - b1 * (m[0] - f[0]) / 2,
-                (f[1] + m[1]) / 2 - b2 * (m[1] - f[1]) / 2
-            ],
+            gene: [g1, g2],
             res: []
         }
 
@@ -276,9 +287,16 @@
 
         // mutation
 
-        if(Math.random() < 0.01) {
-            child.gene[0] = (Math.random() - 0.5) * 2
-            child.gene[1] = (Math.random() - 0.5) * 2
+        if(Math.random() < 0.1) {
+            child.gene[0] += (Math.random() - 0.5) * 0.3
+            child.gene[1] += (Math.random() - 0.5) * 0.3
+        }
+
+        child.gene[0] = clamp(child.gene[0], 0, 1)
+        child.gene[1] = clamp(child.gene[1], 0, 1)
+
+        function clamp(number, min, max) {
+            return Math.max(min, Math.min(number, max));
         }
 
         return child
@@ -292,14 +310,6 @@
     function animate() {
         var res = nsga_ii.step()
 
-        console.log(res.solution)
-
-        res.solution.map(x => {
-            x[0] = (x[0] + 5) / 10
-            x[1] = (x[1] + 5) / 10
-            return x
-        })
-
         graph.setData(res.solution)
 
         static.innerHTML = ''
@@ -308,7 +318,9 @@
             static.innerHTML += `<div>${key} : ${value}</div>`
         })
         
-        window.requestAnimationFrame(animate)
+        setTimeout(() => {
+            window.requestAnimationFrame(animate)
+        }, 1000)
     }
 
 </script>
